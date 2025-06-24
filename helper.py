@@ -33,22 +33,6 @@ def remove_dash_from_class_name(class_name):
     return class_name.replace("_", " ").lower()
 
 
-def send_classification_to_django(image_name, recyclable, non_biodegradable, hazardous):
-    url = "http://localhost:8000/api/save-classification/"  
-    payload = {
-        "image_name": image_name,
-        "recyclable": list(recyclable),
-        "non_biodegradable": list(non_biodegradable),
-        "hazardous": list(hazardous),
-    }
-
-    try:
-        response = requests.post(url, json=payload)
-        response.raise_for_status()
-        print("Successfully sent classification to Django.")
-    except requests.exceptions.RequestException as e:
-        print(f"Failed to send classification to Django: {e}")
-
 
 def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.jpg"):
     image = cv2.resize(image, (640, int(640 * (9 / 16))))
