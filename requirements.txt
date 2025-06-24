@@ -4,4 +4,3 @@ torch==2.7.0
 torchvision==0.22.0
 ultralytics==8.0.173
 urllib3==1.26.6
-onnx==1.15.0
