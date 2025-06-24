@@ -3,18 +3,8 @@ import time
 import streamlit as st
 import cv2
 import settings
-import threading
 import numpy as np
-import requests  
-import os        
-
-
-
-def sleep_and_clear_success():
-    time.sleep(3)
-    st.session_state['recyclable_placeholder'].empty()
-    st.session_state['non_biodegradable_placeholder'].empty()
-    st.session_state['hazardous_placeholder'].empty()
+import os
 
 
 def load_model(model_path):
@@ -33,13 +23,7 @@ def remove_dash_from_class_name(class_name):
     return class_name.replace("_", " ").lower()
 
 
-
-def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.jpg"):
-    image = cv2.resize(image, (640, int(640 * (9 / 16))))
-
-    if 'unique_classes' not in st.session_state:
-        st.session_state['unique_classes'] = set()
-
+def _initialize_placeholders():
     if 'recyclable_placeholder' not in st.session_state:
         st.session_state['recyclable_placeholder'] = st.sidebar.empty()
     if 'non_biodegradable_placeholder' not in st.session_state:
@@ -47,8 +31,27 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
     if 'hazardous_placeholder' not in st.session_state:
         st.session_state['hazardous_placeholder'] = st.sidebar.empty()
 
+
+def _clear_placeholders():
+    st.session_state['recyclable_placeholder'].empty()
+    st.session_state['non_biodegradable_placeholder'].empty()
+    st.session_state['hazardous_placeholder'].empty()
+    st.session_state['last_detection_time'] = 0
+
+
+def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.jpg"):
+    image = cv2.resize(image, (640, int(640 * (9 / 16))))
+
+    _initialize_placeholders()
+
+    if 'unique_classes' not in st.session_state:
+        st.session_state['unique_classes'] = set()
     if 'last_detection_time' not in st.session_state:
         st.session_state['last_detection_time'] = 0
+
+    # Clear after 3 seconds
+    if st.session_state['last_detection_time'] and time.time() - st.session_state['last_detection_time'] > 3:
+        _clear_placeholders()
 
     res = model.predict(image, conf=0.5)
     names = model.names
@@ -57,49 +60,40 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
     for result in res:
         new_classes = set([names[int(c)].strip().lower().replace(" ", "_") for c in result.boxes.cls])
         st.session_state['unique_classes'] = new_classes
-        detected_items.update(st.session_state['unique_classes'])
+        detected_items.update(new_classes)
 
         recyclable_items, non_biodegradable_items, hazardous_items = classify_waste_type(detected_items)
 
         # Clear previous results
+        _initialize_placeholders()
         st.session_state['recyclable_placeholder'].markdown('')
         st.session_state['non_biodegradable_placeholder'].markdown('')
         st.session_state['hazardous_placeholder'].markdown('')
 
         if recyclable_items:
-            detected_items_str = "\n- ".join(remove_dash_from_class_name(item) for item in recyclable_items)
+            items_str = "\n- ".join(remove_dash_from_class_name(item) for item in recyclable_items)
             st.session_state['recyclable_placeholder'].markdown(
-                f"<div class='stRecyclable'><strong>Recyclable items:</strong>\n\n- {detected_items_str}"
+                f"<div class='stRecyclable'><strong>Recyclable items:</strong>\n\n- {items_str}"
                 f"<br><br><em>{settings.ADVICE['recyclable']}</em></div>",
                 unsafe_allow_html=True
             )
 
         if non_biodegradable_items:
-            detected_items_str = "\n- ".join(remove_dash_from_class_name(item) for item in non_biodegradable_items)
+            items_str = "\n- ".join(remove_dash_from_class_name(item) for item in non_biodegradable_items)
             st.session_state['non_biodegradable_placeholder'].markdown(
-                f"<div class='stNonBiodegradable'><strong>Non-Biodegradable items:</strong>\n\n- {detected_items_str}"
+                f"<div class='stNonBiodegradable'><strong>Non-Biodegradable items:</strong>\n\n- {items_str}"
                 f"<br><br><em>{settings.ADVICE['non_biodegradable']}</em></div>",
                 unsafe_allow_html=True
             )
 
         if hazardous_items:
-            detected_items_str = "\n- ".join(remove_dash_from_class_name(item) for item in hazardous_items)
+            items_str = "\n- ".join(remove_dash_from_class_name(item) for item in hazardous_items)
             st.session_state['hazardous_placeholder'].markdown(
-                f"<div class='stHazardous'><strong>Hazardous items:</strong>\n\n- {detected_items_str}"
+                f"<div class='stHazardous'><strong>Hazardous items:</strong>\n\n- {items_str}"
                 f"<br><br><em>{settings.ADVICE['hazardous']}</em></div>",
                 unsafe_allow_html=True
             )
 
-        # Send to Django API
-        send_classification_to_django(
-            image_name=image_name,
-            recyclable=recyclable_items,
-            non_biodegradable=non_biodegradable_items,
-            hazardous=hazardous_items,
-        )
-
-        # Clear results after 3 seconds
-        threading.Thread(target=sleep_and_clear_success).start()
         st.session_state['last_detection_time'] = time.time()
 
     res_plotted = res[0].plot()
@@ -134,10 +128,8 @@ def choose_input_and_classify(model):
     elif option == "Use Webcam":
         if st.button('Start Webcam Detection'):
             try:
-                vid_cap = cv2.VideoCapture(0)  # Open default webcam
+                vid_cap = cv2.VideoCapture(0)
                 st_frame = st.empty()
-                
-                # Add a Stop button using session state
                 stop_button = st.button("Stop Webcam")
 
                 while vid_cap.isOpened():
@@ -146,10 +138,8 @@ def choose_input_and_classify(model):
                         st.error("Failed to read from webcam.")
                         break
 
-                    # Process and display detections
                     _display_detected_frames(model, st_frame, frame, image_name="webcam_frame.jpg")
 
-                    # Exit if the Stop button is pressed
                     if stop_button:
                         break
 
