@@ -44,66 +44,72 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
 
     _initialize_placeholders()
 
-    if 'unique_classes' not in st.session_state:
-        st.session_state['unique_classes'] = set()
     if 'last_detection_time' not in st.session_state:
         st.session_state['last_detection_time'] = 0
 
+    # Clear after 3 seconds
     if st.session_state['last_detection_time'] and time.time() - st.session_state['last_detection_time'] > 3:
         _clear_placeholders()
 
     res = model.predict(image, conf=0.5)
     names = settings.CLASS_NAMES
+
+    # ✅ Clear previous detections
     detected_items = set()
 
-    try:
-        for result in res:
+    for result in res:
+        try:
+            if result.boxes is None or result.boxes.cls is None:
+                continue
+
             for c in result.boxes.cls:
                 class_index = int(c.item())
                 class_name = names.get(class_index)
                 if class_name:
                     detected_items.add(class_name.strip().lower().replace(" ", "_"))
 
-        st.session_state['unique_classes'] = detected_items
+        except Exception as e:
+            st.error(f"Error processing class names: {e}")
+            continue
 
-        recyclable_items, non_biodegradable_items, hazardous_items = classify_waste_type(detected_items)
+    recyclable_items, non_biodegradable_items, hazardous_items = classify_waste_type(detected_items)
 
-        _initialize_placeholders()
-        st.session_state['recyclable_placeholder'].markdown('')
-        st.session_state['non_biodegradable_placeholder'].markdown('')
-        st.session_state['hazardous_placeholder'].markdown('')
+    # Clear old sidebar content
+    _initialize_placeholders()
+    st.session_state['recyclable_placeholder'].markdown('')
+    st.session_state['non_biodegradable_placeholder'].markdown('')
+    st.session_state['hazardous_placeholder'].markdown('')
 
-        if recyclable_items:
-            items_str = "\n- ".join(remove_dash_from_class_name(item) for item in recyclable_items)
-            st.session_state['recyclable_placeholder'].markdown(
-                f"<div class='stRecyclable'><strong>Recyclable items:</strong>\n\n- {items_str}"
-                f"<br><br><em>{settings.ADVICE['recyclable']}</em></div>",
-                unsafe_allow_html=True
-            )
+    if recyclable_items:
+        items_str = "\n- ".join(remove_dash_from_class_name(item) for item in recyclable_items)
+        st.session_state['recyclable_placeholder'].markdown(
+            f"<div class='stRecyclable'><strong>Recyclable items:</strong>\n\n- {items_str}"
+            f"<br><br><em>{settings.ADVICE['recyclable']}</em></div>",
+            unsafe_allow_html=True
+        )
 
-        if non_biodegradable_items:
-            items_str = "\n- ".join(remove_dash_from_class_name(item) for item in non_biodegradable_items)
-            st.session_state['non_biodegradable_placeholder'].markdown(
-                f"<div class='stNonBiodegradable'><strong>Non-Biodegradable items:</strong>\n\n- {items_str}"
-                f"<br><br><em>{settings.ADVICE['non_biodegradable']}</em></div>",
-                unsafe_allow_html=True
-            )
+    if non_biodegradable_items:
+        items_str = "\n- ".join(remove_dash_from_class_name(item) for item in non_biodegradable_items)
+        st.session_state['non_biodegradable_placeholder'].markdown(
+            f"<div class='stNonBiodegradable'><strong>Non-Biodegradable items:</strong>\n\n- {items_str}"
+            f"<br><br><em>{settings.ADVICE['non_biodegradable']}</em></div>",
+            unsafe_allow_html=True
+        )
 
-        if hazardous_items:
-            items_str = "\n- ".join(remove_dash_from_class_name(item) for item in hazardous_items)
-            st.session_state['hazardous_placeholder'].markdown(
-                f"<div class='stHazardous'><strong>Hazardous items:</strong>\n\n- {items_str}"
-                f"<br><br><em>{settings.ADVICE['hazardous']}</em></div>",
-                unsafe_allow_html=True
-            )
+    if hazardous_items:
+        items_str = "\n- ".join(remove_dash_from_class_name(item) for item in hazardous_items)
+        st.session_state['hazardous_placeholder'].markdown(
+            f"<div class='stHazardous'><strong>Hazardous items:</strong>\n\n- {items_str}"
+            f"<br><br><em>{settings.ADVICE['hazardous']}</em></div>",
+            unsafe_allow_html=True
+        )
 
-        st.session_state['last_detection_time'] = time.time()
+    st.session_state['last_detection_time'] = time.time()
 
-    except Exception as e:
-        st.error(f"Error processing class names: {e}")
-
+    # Display image with detections
     res_plotted = res[0].plot()
     st_frame.image(res_plotted, channels="BGR")
+
 
 
 def choose_input_and_classify(model):
