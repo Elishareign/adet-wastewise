@@ -44,6 +44,8 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
 
     _initialize_placeholders()
 
+    if 'unique_classes' not in st.session_state:
+        st.session_state['unique_classes'] = set()
     if 'last_detection_time' not in st.session_state:
         st.session_state['last_detection_time'] = 0
 
@@ -51,30 +53,23 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
     if st.session_state['last_detection_time'] and time.time() - st.session_state['last_detection_time'] > 3:
         _clear_placeholders()
 
+    # Run detection
     res = model.predict(image, conf=0.5)
-    names = settings.CLASS_NAMES
-
-    # ✅ Clear previous detections
+    names = model.names
     detected_items = set()
 
     for result in res:
-        try:
-            if result.boxes is None or result.boxes.cls is None:
-                continue
+        for c in result.boxes.cls:
+            class_name = names[int(c)].strip().lower().replace(" ", "_")
+            detected_items.add(class_name)
 
-            for c in result.boxes.cls:
-                class_index = int(c.item())
-                class_name = names.get(class_index)
-                if class_name:
-                    detected_items.add(class_name.strip().lower().replace(" ", "_"))
+    # Store detected classes in session
+    st.session_state['unique_classes'] = detected_items
 
-        except Exception as e:
-            st.error(f"Error processing class names: {e}")
-            continue
-
+    # Classify detected items
     recyclable_items, non_biodegradable_items, hazardous_items = classify_waste_type(detected_items)
 
-    # Clear old sidebar content
+    # Clear old results and display new ones
     _initialize_placeholders()
     st.session_state['recyclable_placeholder'].markdown('')
     st.session_state['non_biodegradable_placeholder'].markdown('')
@@ -106,10 +101,9 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
 
     st.session_state['last_detection_time'] = time.time()
 
-    # Display image with detections
+    # Show the image with bounding boxes
     res_plotted = res[0].plot()
     st_frame.image(res_plotted, channels="BGR")
-
 
 
 def choose_input_and_classify(model):
