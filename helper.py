@@ -54,16 +54,18 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
         _clear_placeholders()
 
     res = model.predict(image, conf=0.5)
-    names = model.names
+    names = settings.CLASS_NAMES
     detected_items = set()
 
     for result in res:
         try:
             # Safe lookup to prevent KeyError or IndexError
-            new_classes = set([
-                names[int(c.item())].strip().lower().replace(" ", "_")
-                for c in result.boxes.cls
-                if int(c.item()) in names
+            new_classes = set()
+            for c in result.boxes.cls:
+                class_index = int(c.item())
+                class_name = names.get(class_index)
+                if class_name:
+                    new_classes.add(class_name.strip().lower().replace(" ", "_"))
             ])
         except Exception as e:
             st.error(f"Error processing class names: {e}")
