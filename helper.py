@@ -49,13 +49,12 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
     if 'last_detection_time' not in st.session_state:
         st.session_state['last_detection_time'] = 0
 
-    # Clear after 3 seconds
     if st.session_state['last_detection_time'] and time.time() - st.session_state['last_detection_time'] > 3:
         _clear_placeholders()
 
     res = model.predict(image, conf=0.5)
     names = settings.CLASS_NAMES
-    detected_items = set()  # ✅ Gather from all results
+    detected_items = set()
 
     try:
         for result in res:
@@ -69,13 +68,11 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
 
         recyclable_items, non_biodegradable_items, hazardous_items = classify_waste_type(detected_items)
 
-        # Clear previous results
         _initialize_placeholders()
         st.session_state['recyclable_placeholder'].markdown('')
         st.session_state['non_biodegradable_placeholder'].markdown('')
         st.session_state['hazardous_placeholder'].markdown('')
 
-        # Display results
         if recyclable_items:
             items_str = "\n- ".join(remove_dash_from_class_name(item) for item in recyclable_items)
             st.session_state['recyclable_placeholder'].markdown(
@@ -105,11 +102,8 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
     except Exception as e:
         st.error(f"Error processing class names: {e}")
 
-    # Display image with detections
     res_plotted = res[0].plot()
     st_frame.image(res_plotted, channels="BGR")
-
-
 
 
 def choose_input_and_classify(model):
