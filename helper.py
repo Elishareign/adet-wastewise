@@ -58,7 +58,7 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
     detected_items = set()
 
     for result in res:
-        new_classes = set([names[int(c)].strip().lower().replace(" ", "_") for c in result.boxes.cls])
+        new_classes = set([names[int(c.item())].strip().lower().replace(" ", "_") for c in result.boxes.cls])
         st.session_state['unique_classes'] = new_classes
         detected_items.update(new_classes)
 
