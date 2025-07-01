@@ -58,17 +58,7 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
     detected_items = set()
 
     for result in res:
-        try:
-            # Safe lookup to prevent KeyError or IndexError
-            new_classes = set([
-                names[int(c.item())].strip().lower().replace(" ", "_")
-                for c in result.boxes.cls
-                if int(c.item()) in names
-            ])
-        except Exception as e:
-            st.error(f"Error processing class names: {e}")
-            continue
-
+        new_classes = set([names[int(c)].strip().lower().replace(" ", "_") for c in result.boxes.cls])
         st.session_state['unique_classes'] = new_classes
         detected_items.update(new_classes)
 
@@ -106,7 +96,6 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
 
         st.session_state['last_detection_time'] = time.time()
 
-    # Display image with detections
     res_plotted = res[0].plot()
     st_frame.image(res_plotted, channels="BGR")
 
