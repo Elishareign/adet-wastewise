@@ -66,7 +66,7 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
                 class_name = names.get(class_index)
                 if class_name:
                     new_classes.add(class_name.strip().lower().replace(" ", "_"))
-            ])
+    
         except Exception as e:
             st.error(f"Error processing class names: {e}")
             continue
