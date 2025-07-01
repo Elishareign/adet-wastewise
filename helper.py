@@ -9,35 +9,6 @@ import os
 
 def load_model(model_path):
     model = YOLO(model_path)
-
-    # Manual mapping for ONNX model
-    if model.names is None:
-        model.names = {
-            0: 'stick',
-            1: 'battery',
-            2: 'chemical_spray_can',
-            3: 'plastic_box',
-            4: 'plastic_bottle',
-            5: 'chemical_plastic_bottle',
-            6: 'cardboard_bowl',
-            7: 'straw',
-            8: 'plastic_bottle_cap',
-            9: 'plastic_cup',
-            10: 'scrap_plastic',
-            11: 'plastic_bag',
-            12: 'scrap_paper',
-            13: 'can',
-            14: 'snack_bag',
-            15: 'light_bulb',
-            16: 'plastic_spoon',
-            17: 'chemical_plastic_gallon',
-            18: 'plastic_cup_lid',
-            19: 'paint_bucket',
-            20: 'cardboard_box',
-            21: 'reuseable_paper',
-            22: 'plastic_cultery'
-        }
-
     return model
 
 
@@ -88,13 +59,12 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
 
     for result in res:
         try:
-            new_classes = set()
-            for c in result.boxes.cls:
-                class_id = int(c.item())
-                class_name = names.get(class_id)
-                if class_name:
-                    formatted_name = class_name.strip().lower().replace(" ", "_")
-                    new_classes.add(formatted_name)
+            # Safe lookup to prevent KeyError or IndexError
+            new_classes = set([
+                names[int(c.item())].strip().lower().replace(" ", "_")
+                for c in result.boxes.cls
+                if int(c.item()) in names
+            ])
         except Exception as e:
             st.error(f"Error processing class names: {e}")
             continue
@@ -104,6 +74,7 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
 
         recyclable_items, non_biodegradable_items, hazardous_items = classify_waste_type(detected_items)
 
+        # Clear previous results
         _initialize_placeholders()
         st.session_state['recyclable_placeholder'].markdown('')
         st.session_state['non_biodegradable_placeholder'].markdown('')
@@ -135,6 +106,7 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
 
         st.session_state['last_detection_time'] = time.time()
 
+    # Display image with detections
     res_plotted = res[0].plot()
     st_frame.image(res_plotted, channels="BGR")
 
