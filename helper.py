@@ -1,3 +1,4 @@
+
 from ultralytics import YOLO
 import time
 import streamlit as st
@@ -44,8 +45,6 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
 
     _initialize_placeholders()
 
-    if 'unique_classes' not in st.session_state:
-        st.session_state['unique_classes'] = set()
     if 'last_detection_time' not in st.session_state:
         st.session_state['last_detection_time'] = 0
 
@@ -53,24 +52,30 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
     if st.session_state['last_detection_time'] and time.time() - st.session_state['last_detection_time'] > 3:
         _clear_placeholders()
 
-    # Run detection
     res = model.predict(image, conf=0.5)
-    names = model.names
+    names = settings.CLASS_NAMES
+
+    # Clear previous detections
     detected_items = set()
 
     for result in res:
-        for c in result.boxes.cls:
-            class_index = c.item()
-            class_name = names[class_index].strip().lower().replace(" ", "_")
-            detected_items.add(class_name)
+        try:
+            if result.boxes is None or result.boxes.cls is None:
+                continue
 
-    # Store detected classes in session
-    st.session_state['unique_classes'] = detected_items
+            for c in result.boxes.cls:
+                class_index = int(c.item())
+                class_name = names.get(class_index)
+                if class_name:
+                    detected_items.add(class_name.strip().lower().replace(" ", "_"))
 
-    # Classify detected items
+        except Exception as e:
+            st.error(f"Error processing class names: {e}")
+            continue
+
     recyclable_items, non_biodegradable_items, hazardous_items = classify_waste_type(detected_items)
 
-    # Clear old results and display new ones
+    # Clear old sidebar content
     _initialize_placeholders()
     st.session_state['recyclable_placeholder'].markdown('')
     st.session_state['non_biodegradable_placeholder'].markdown('')
@@ -102,9 +107,10 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
 
     st.session_state['last_detection_time'] = time.time()
 
-    # Show the image with bounding boxes
+    # Display image with detections
     res_plotted = res[0].plot()
     st_frame.image(res_plotted, channels="BGR")
+
 
 
 def choose_input_and_classify(model):
