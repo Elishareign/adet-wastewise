@@ -60,6 +60,7 @@ def _display_detected_frames(model, st_frame, image, image_name="uploaded_image.
 
     for result in res:
         for c in result.boxes.cls:
+            class_index = c.item()
             class_name = names[int(c)].strip().lower().replace(" ", "_")
             detected_items.add(class_name)
 
